@@ -9,7 +9,6 @@ type ExportFormat = "csv" | "json";
 
 export default function SettingsPage() {
   const router   = useRouter();
-  const supabase = getSupabaseClient();
   const [deleted, setDeleted]           = useState<Task[]>([]);
   const [exporting, setExporting]       = useState(false);
   const [deleteStep, setDeleteStep]     = useState<"idle" | "confirm" | "deleting">("idle");
@@ -19,6 +18,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function load() {
+      const supabase = getSupabaseClient();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = supabase as any;
       const { data: { user } } = await db.auth.getUser();
@@ -35,11 +35,11 @@ export default function SettingsPage() {
       setTaskCount(count ?? 0);
     }
     load();
-  }, [supabase]);
+  }, []);
 
   async function restore(id: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("tasks").update({ deleted_at: null }).eq("id", id);
+    await (getSupabaseClient() as any).from("tasks").update({ deleted_at: null }).eq("id", id);
     setDeleted((prev) => prev.filter((t) => t.id !== id));
   }
 
@@ -75,7 +75,7 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) { setDeleteError(data.error); setDeleteStep("confirm"); return; }
-      await supabase.auth.signOut();
+      await getSupabaseClient().auth.signOut();
       router.push("/?deleted=1");
     } catch {
       setDeleteError("Deletion failed — please try again");
@@ -84,7 +84,7 @@ export default function SettingsPage() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    await getSupabaseClient().auth.signOut();
     router.push("/");
   }
 
