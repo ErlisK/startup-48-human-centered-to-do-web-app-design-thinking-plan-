@@ -1,26 +1,189 @@
 @import "tailwindcss";
 
+/* ── Design Tokens (Phase 4 locked) ─────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-base:      #0d1117;
+  --bg-surface:   #161b22;
+  --bg-elevated:  #1e2530;
+  --accent-green: #2ecc71;
+  --accent-blue:  #2e86de;
+  --accent-amber: #f39c12;
+  --accent-red:   #e74c3c;
+  --text-primary: #f0f0f0;
+  --text-secondary: #8b949e;
+  --text-muted:   #6e7681;  /* CW-004: 4.65:1 contrast on --bg-base */
+  --border:       #21262d;
+  --radius:       6px;
+
+  /* Animation budgets (K-06) */
+  --anim-fill:    150ms;
+  --anim-travel:  180ms;
+  --anim-land:    70ms;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100dvh;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Focus ring ───────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Capture Bar ──────────────────────────────────────────── */
+.capture-bar {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1.5px solid var(--accent-blue);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  font-size: 15px;
+  border-radius: 0;
+}
+.capture-bar:focus { outline: none; border-color: var(--accent-blue); }
+.capture-bar::placeholder { color: var(--text-muted); }
+
+/* HV-010: Empty submit shake */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-4px); }
+  60%       { transform: translateX(4px); }
+  80%       { transform: translateX(-2px); }
+}
+.capture-bar--shake { animation: shake 200ms ease-out; }
+
+/* ── Task Row ─────────────────────────────────────────────── */
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  will-change: transform, opacity; /* K-06: GPU layer */
+  transition: background 120ms ease;
+}
+.task-row:hover, .task-row:focus { background: #252d3a; outline: none; }
+.task-row--delete-confirm { border-left: 4px solid var(--accent-red) !important; background: #1a0505; }
+
+/* ── Completion animation (K-06: 400ms total) ─────────────── */
+.task-row.completing .task-checkbox { animation: checkbox-fill var(--anim-fill) ease-out forwards; }
+.task-row.traveling {
+  transform: translate(var(--travel-x, 0), var(--travel-y, 0));
+  transition: transform var(--anim-travel) ease-in;
+}
+@keyframes checkbox-fill {
+  0%   { clip-path: inset(0 100% 0 0); background: var(--accent-green); }
+  100% { clip-path: inset(0 0% 0 0); background: var(--accent-green); }
+}
+
+/* HV-003: Done count bounce */
+@keyframes count-bounce {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.15); }
+}
+.done-count-badge { animation: count-bounce 300ms ease-out; }
+
+/* ── Tag chips ─────────────────────────────────────────────── */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  background: #1a1a3a;
+  color: #9b59b6;
+  border: 1px solid #2a1a4a;
+}
+/* CW-009: Interactive tag chips */
+button.tag-chip {
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+button.tag-chip:hover { filter: brightness(1.25); }
+
+/* ── Done Wall ─────────────────────────────────────────────── */
+.done-wall { min-height: 48px; background: #0d200d; border-radius: var(--radius); padding: 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-start; }
+.done-tile {
+  width: 14px; height: 14px; border-radius: 2px;
+  cursor: pointer; /* CW-006 */
+  transition: filter 120ms ease;
+  will-change: transform, opacity;
+}
+.done-tile:hover { filter: brightness(1.25); cursor: pointer; }
+
+/* HV-017: Empty done wall — organic canvas (not skeleton) */
+.done-wall--empty {
+  background: radial-gradient(circle at 50% 50%, rgba(46,204,113,0.04) 0%, transparent 70%);
+}
+
+/* Tile landing animation */
+@keyframes tile-land {
+  0%   { transform: scale(0.5); opacity: 0.3; }
+  70%  { transform: scale(1.1); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.done-tile--landing { animation: tile-land var(--anim-land) ease-out forwards; }
+
+/* ── Swap dots (HV-011) ───────────────────────────────────── */
+.swap-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin: 0 2px;
+}
+.swap-dot--empty { background: var(--text-muted); }
+.swap-dot--used  { background: var(--accent-blue); }
+
+/* ── Morning deal cards ────────────────────────────────────── */
+.deal-card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  padding: 14px;
+  flex: 1;
+  min-width: 140px;
+  max-width: 200px;
+  border: 1px solid var(--border);
+}
+
+/* CW-007: Wind-down swipe jiggle */
+@keyframes card-jiggle {
+  0%   { transform: translateX(0); }
+  30%  { transform: translateX(-8px); }
+  70%  { transform: translateX(4px); }
+  100% { transform: translateX(0); }
+}
+.wind-down-card--hint { animation: card-jiggle 400ms ease-out; }
+
+/* ── NLP preview row (HV-018) ─────────────────────────────── */
+.nlp-token-unparsed { text-decoration: underline wavy var(--accent-amber); }
+
+/* ── Toast (HV-001) ───────────────────────────────────────── */
+.toast-stack { position: fixed; bottom: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.toast-item { background: #1e3a1a; border: 1px solid var(--accent-green); border-radius: var(--radius); padding: 8px 14px; font-size: 13px; color: var(--accent-green); pointer-events: auto; cursor: pointer; animation: toast-in 150ms ease-out; }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ── Sync indicator (HV-002) ──────────────────────────────── */
+.sync-indicator--queued { color: var(--accent-amber); }
+.sync-indicator--syncing { color: var(--text-muted); animation: sync-pulse 1.2s ease-in-out infinite; }
+@keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ── Keyboard hint bar (HV-012) ───────────────────────────── */
+.kbd-hint-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-base); border-top: 1px solid var(--border); padding: 6px 14px; font-size: 11px; color: var(--text-muted); display: flex; gap: 16px; z-index: 50; }
+.kbd-hint-bar kbd { background: var(--bg-elevated); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: var(--text-secondary); }
+
+/* ── Accessibility ────────────────────────────────────────── */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
