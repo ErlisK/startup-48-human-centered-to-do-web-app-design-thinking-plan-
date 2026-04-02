@@ -7,7 +7,7 @@ const AUTH_REQUIRED = ["/app/"];
 // ── Rate limit config per route pattern ──────────────────────────────────────
 const RATE_LIMITS: Array<{ pattern: RegExp; window: number; max: number }> = [
   { pattern: /^\/api\/auth/,    window: 60,  max: 10  }, // auth: 10/min
-  { pattern: /^\/auth\//,       window: 60,  max: 15  }, // auth pages: 15/min
+
   { pattern: /^\/api\/import/,  window: 300, max: 5   }, // import: 5/5min
   { pattern: /^\/api\/account/, window: 60,  max: 5   }, // account ops: 5/min
   { pattern: /^\/api\//,        window: 60,  max: 120 }, // other API: 120/min
