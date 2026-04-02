@@ -1,0 +1,24 @@
+# focus — keyboard-first todo app
+# https://startup-48-human-centered-to-do-web.vercel.app
+
+User-agent: *
+Allow: /
+Allow: /auth/login
+Allow: /auth/signup
+Allow: /privacy
+Allow: /bookmarklet
+Allow: /install
+
+# Block authenticated/private app routes
+Disallow: /app/
+Disallow: /api/
+Disallow: /auth/callback
+Disallow: /auth/update-password
+Disallow: /capture
+Disallow: /onboarding
+
+# Block Next.js internals
+Disallow: /_next/
+Disallow: /~offline
+
+Sitemap: https://startup-48-human-centered-to-do-web.vercel.app/sitemap.xml

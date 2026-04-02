@@ -5,6 +5,24 @@ Format: [Semantic Versioning](https://semver.org) — [Keep a Changelog](https:/
 
 ---
 
+## [Unreleased]
+### Added
+- /install page: platform-specific PWA install instructions (iOS/Android/Desktop/macOS)
+- Landing page: privacy pledge section, JSON-LD structured data, Install section, Open Source section
+- robots.txt: search engine indexing rules
+- sitemap.ts: Next.js App Router dynamic sitemap (6 public pages)
+- /.well-known/security.txt: vulnerability disclosure contact
+- .env.local.example: self-hosting environment variable template
+- CONTRIBUTING.md: development setup, PR checklist, core principles
+- LICENSE: MIT license file
+- Performance smoke test results in README
+
+### Changed
+- Landing page: nav now includes Install link; footer includes Changelog link
+- README: comprehensive rewrite with PWA install instructions, keyboard shortcuts, privacy section, performance stats
+
+---
+
 ## [0.1.2] — 2026-04-02 (Dogfooding Week 1, Day 6)
 ### Added
 - Privacy page: "← Back to app" navigation link in header

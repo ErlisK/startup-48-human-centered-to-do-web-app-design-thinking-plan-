@@ -1,0 +1,5 @@
+Contact: https://github.com/ErlisK/startup-48-human-centered-to-do-web-app-design-thinking-plan-/issues
+Expires: 2027-04-02T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://startup-48-human-centered-to-do-web.vercel.app/.well-known/security.txt
+Policy: https://startup-48-human-centered-to-do-web.vercel.app/privacy
