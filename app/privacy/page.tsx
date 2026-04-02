@@ -37,14 +37,40 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="Tracking &amp; telemetry">
-          <p>
+          <p id="telemetry">
             <strong style={{ color: "var(--text-primary)" }}>Telemetry is off by default.</strong>{" "}
-            We don&apos;t load Google Analytics, Mixpanel, Sentry, or any third-party tracking SDK.
+            We never load Google Analytics, Mixpanel, Sentry, or any third-party tracking SDK.
             No cookies are set by us. No cross-site tracking.
           </p>
           <p style={{ marginTop: 8 }}>
-            If we ever add opt-in usage statistics, it will be an explicit toggle in Settings,
-            anonymous and aggregated, sent only to our own servers.
+            You can opt in to anonymous usage statistics from{" "}
+            <strong>Settings → Privacy → Share anonymous usage statistics</strong>.
+            Opting in is entirely voluntary and can be reversed at any time.
+          </p>
+          <p style={{ marginTop: 8, fontWeight: 600, color: "var(--text-primary)" }}>
+            When you opt in, we collect:
+          </p>
+          <ul style={{ marginTop: 4, paddingLeft: 20, lineHeight: 1.8 }}>
+            <li><strong>Event name</strong> — one of: signup_completed, first_task_created, task_completed</li>
+            <li><strong>Anonymous ID</strong> — an 8-character hex code generated randomly in your browser.
+              It cannot be reversed to your identity and rotates if you clear browser storage.</li>
+            <li><strong>Session ID</strong> — a random UUID that resets when you close the tab</li>
+            <li><strong>App version</strong> — e.g. &quot;0.1.2&quot;</li>
+            <li><strong>Browser family</strong> — one of: chrome, firefox, safari, edge, other</li>
+          </ul>
+          <p style={{ marginTop: 8, fontWeight: 600, color: "var(--text-primary)" }}>
+            We never collect:
+          </p>
+          <ul style={{ marginTop: 4, paddingLeft: 20, lineHeight: 1.8 }}>
+            <li>Your email address or any personally identifiable information</li>
+            <li>Task titles or any task content</li>
+            <li>Your IP address</li>
+            <li>Your full user agent string</li>
+            <li>Any data from third-party sources</li>
+          </ul>
+          <p style={{ marginTop: 8 }}>
+            Telemetry data is stored in our own Supabase database, automatically deleted after 90 days,
+            and never shared with third parties.
           </p>
         </Section>
 

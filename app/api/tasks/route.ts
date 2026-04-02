@@ -74,6 +74,15 @@ export async function POST(req: NextRequest) {
   const { data, error } = await db.from("tasks").insert(task).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Check if this is the user's first-ever task (for funnel telemetry)
+  // Only count non-deleted tasks to avoid counting restore events
+  const { count: taskCount } = await db
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+  const isFirstTask = (taskCount ?? 0) === 1;
+
   // Audit log (non-blocking)
   void writeAuditLog({
     action: "task.create",
@@ -83,8 +92,11 @@ export async function POST(req: NextRequest) {
     userAgent: getUserAgent(req.headers),
   });
 
-  return NextResponse.json(data, {
-    status: 201,
-    headers: rateLimitHeaders(remaining, 30, 60),
-  });
+  return NextResponse.json(
+    { ...data, _meta: { first_task: isFirstTask } },
+    {
+      status: 201,
+      headers: rateLimitHeaders(remaining, 30, 60),
+    }
+  );
 }

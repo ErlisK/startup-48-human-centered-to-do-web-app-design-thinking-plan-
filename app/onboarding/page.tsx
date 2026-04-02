@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { trackEvent } from "@/lib/privacy/telemetry";
 import { useRouter } from "next/navigation";
 
 const OPTIONS = [
@@ -17,6 +18,9 @@ export default function OnboardingPage() {
     setSelected(opt.id);
     setAck(opt.ack);
     localStorage.setItem("focus_onboarding", opt.id);
+    // Funnel event: user completed onboarding (opt-in only, PII-free)
+    trackEvent("signup_completed");
+    trackEvent("onboarding_completed");
     setTimeout(() => router.push("/app/today"), 1500);
   }
 

@@ -4,6 +4,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { ulid } from "@/lib/offline/ulid";
 import { enqueue, flushQueue, getPendingCount } from "@/lib/offline/queue";
 import type { Task } from "@/lib/supabase/types";
+import { trackEvent } from "@/lib/privacy/telemetry";
 
 export type SyncState = "synced" | "queued" | "syncing";
 
@@ -83,6 +84,18 @@ export function useTasks(view: "today" | "inbox" | "done-today" = "inbox") {
     }
     const { error } = await db().from("tasks").insert(task);
     if (error) { setTasks((prev) => prev.filter((t) => t.id !== task.id)); throw error; }
+
+    // Funnel telemetry: fire first_task_created if this is the user's first task
+    // (opt-in only; checks count after successful insert)
+    try {
+      const { count } = await db()
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("deleted_at", null);
+      if ((count ?? 0) === 1) trackEvent("first_task_created");
+    } catch { /* telemetry never breaks the app */ }
+
     return task;
   }, []);
 
@@ -91,6 +104,8 @@ export function useTasks(view: "today" | "inbox" | "done-today" = "inbox") {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     if (!navigator.onLine) { await enqueue({ id, operation: "update", payload: { id, completed_at: now } }); setSyncState("queued"); return; }
     await db().from("tasks").update({ completed_at: now }).eq("id", id);
+    // Funnel telemetry: task_completed (opt-in only)
+    trackEvent("task_completed");
   }, []);
 
   const deleteTask = useCallback(async (id: string) => {

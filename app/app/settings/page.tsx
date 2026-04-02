@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { isTelemetryEnabled, enableTelemetry, disableTelemetry, trackEvent } from "@/lib/privacy/telemetry";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,6 +16,10 @@ export default function SettingsPage() {
   const [deleteInput, setDeleteInput]   = useState("");
   const [deleteError, setDeleteError]   = useState("");
   const [taskCount, setTaskCount]       = useState<number | null>(null);
+  const [telemetry, setTelemetry]       = useState(false);
+
+  // Initialise telemetry state from localStorage (client-only)
+  useEffect(() => { setTelemetry(isTelemetryEnabled()); }, []);
 
   useEffect(() => {
     async function load() {
@@ -182,17 +187,68 @@ export default function SettingsPage() {
       {/* ── Telemetry / Privacy ── */}
       <section aria-labelledby="privacy-heading" style={S.section}>
         <h2 id="privacy-heading" style={S.heading}>Privacy</h2>
+
+        {/* Telemetry opt-in toggle */}
         <div style={S.row}>
-          <div>
-            <p style={{ fontSize: 14, color: "var(--text-primary)", marginBottom: 2 }}>Telemetry</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              Off by default. We never load tracking SDKs without your consent.
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, color: "var(--text-primary)", marginBottom: 2 }}>
+              Share anonymous usage statistics
+            </p>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+              Opt-in only. Tracks funnel events (signup, first task, completion).
+              No PII — no email, no task content, no IP address.{" "}
+              <Link href="/privacy#telemetry"
+                style={{ color: "var(--accent-blue)", textDecoration: "none" }}>
+                What we collect →
+              </Link>
             </p>
           </div>
-          <span style={{ fontSize: 12, color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "3px 10px", borderRadius: 10 }}>
-            Off
-          </span>
+          {/* Toggle switch */}
+          <button
+            role="switch"
+            aria-checked={telemetry}
+            aria-label={telemetry ? "Disable anonymous telemetry" : "Enable anonymous telemetry"}
+            onClick={() => {
+              if (telemetry) {
+                disableTelemetry();
+                trackEvent("telemetry_opted_out");
+                setTelemetry(false);
+              } else {
+                enableTelemetry();
+                // Fire opted_in event immediately (now enabled)
+                trackEvent("telemetry_opted_in");
+                setTelemetry(true);
+              }
+            }}
+            style={{
+              position: "relative", width: 42, height: 24, borderRadius: 12, border: "none",
+              cursor: "pointer", flexShrink: 0, marginLeft: 16,
+              background: telemetry ? "var(--accent-green)" : "var(--bg-elevated)",
+              transition: "background 200ms",
+              outline: "none",
+            }}
+            onFocus={(e) => { e.currentTarget.style.outline = "2px solid var(--accent-blue)"; e.currentTarget.style.outlineOffset = "2px"; }}
+            onBlur={(e)  => { e.currentTarget.style.outline = "none"; }}
+          >
+            <span style={{
+              position: "absolute", top: 3, left: telemetry ? 21 : 3,
+              width: 18, height: 18, borderRadius: "50%",
+              background: telemetry ? "#0d1117" : "var(--text-muted)",
+              transition: "left 200ms",
+            }} />
+          </button>
         </div>
+
+        {telemetry && (
+          <div style={{ padding: "8px 16px 10px", background: "var(--bg-base)", borderTop: "1px solid var(--border)" }}>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              ✅ Sharing: <strong>signup · first task · completions</strong>.
+              Anonymous ID is a random 8-char hex generated in your browser.
+              Data sent to our own server only. Deleted after 90 days.
+            </p>
+          </div>
+        )}
+
         <div style={{ ...S.row, borderBottom: "none" }}>
           <Link href="/privacy"
             style={{ color: "var(--accent-blue)", fontSize: 13, textDecoration: "underline" }}>
