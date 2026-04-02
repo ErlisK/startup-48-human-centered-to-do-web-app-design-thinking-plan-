@@ -36,9 +36,6 @@ const STEPS = [
 export default function LandingPage() {
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg-base)", color: "var(--text-primary)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      {/* Skip nav */}
-      <a href="#main-content" className="skip-nav">Skip to content</a>
-
       {/* Header */}
       <header role="banner" style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 900, margin: "0 auto" }}>
         <span style={{ fontWeight: 900, fontSize: 20, color: "var(--accent-blue)", letterSpacing: -0.5 }}>✦ focus</span>
@@ -57,7 +54,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <main id="main-content" tabIndex={-1} style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px" }}>
+      <main style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px" }}>
         <section aria-labelledby="hero-heading" style={{ padding: "80px 0 60px", textAlign: "center" }}>
           <div style={{ display: "inline-block", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "var(--text-muted)", marginBottom: 20, letterSpacing: 0.5 }}>
             v0.1.2 — Free &amp; open source
