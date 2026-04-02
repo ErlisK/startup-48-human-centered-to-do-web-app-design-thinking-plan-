@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import { ToastProvider } from "@/components/ui/Toast";
 import { NavBar } from "@/components/ui/NavBar";
 import { useVimNav } from "@/hooks/useVimNav";
+import { InstallBanner } from "@/components/ui/InstallBanner";
 import { QuickCaptureModal } from "@/components/capture/QuickCaptureModal";
 import { useTasks } from "@/hooks/useTasks";
 
@@ -18,6 +19,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       {/* Global Cmd+K modal — available on every page */}
       <QuickCaptureModal onAdd={addTask} />
+      {/* PWA install prompt */}
+      <InstallBanner />
     </div>
   );
 }

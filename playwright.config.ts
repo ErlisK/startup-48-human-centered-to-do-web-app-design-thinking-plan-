@@ -9,6 +9,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
+    video: "on-first-retry",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
@@ -18,6 +19,6 @@ export default defineConfig({
     command: "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    timeout: 120000,
+    timeout: 120_000,
   },
 });
