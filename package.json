@@ -12,7 +12,9 @@
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:perf": "k6 run perf/load-test.js",
+    "test:perf:ci": "k6 run --out json=perf-results.ndjson --summary-export=perf-summary.json perf/load-test.js"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
