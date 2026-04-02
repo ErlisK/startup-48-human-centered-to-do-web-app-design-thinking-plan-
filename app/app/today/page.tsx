@@ -1,146 +1,204 @@
 "use client";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import { useTasks } from "@/hooks/useTasks";
 import { DoneWall } from "@/components/done-wall/DoneWall";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import { CaptureBar } from "@/components/capture/CaptureBar";
 import type { Task } from "@/lib/supabase/types";
 
-const MAX_SWAPS = 3;
+const FOCUS_LIMIT = 3;
 
 export default function TodayPage() {
-  const wallRef = useRef<HTMLElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
-  const { tasks, loading, syncState, queueCount, addTask, completeTask, deleteTask } = useTasks("today");
+  const wallRef  = useRef<HTMLElement>(null);
+  const listRef  = useRef<HTMLUListElement>(null);
+  const { tasks, loading, addTask, completeTask, deleteTask, rescheduleTask } = useTasks("today");
   const { tasks: doneTasks } = useTasks("done-today");
-  const [morningCards, setMorningCards] = useState<Task[]>([]);
-  const [swapCount, setSwapCount] = useState(0);
-  const [showMorning, setShowMorning] = useState(false);
-  const [allDealCards, setAllDealCards] = useState<Task[]>([]);
-  const [isAbsent, setIsAbsent] = useState(false);
   const router = useRouter();
 
-  // CW-010: Detect absence
-  useEffect(() => {
-    const last = localStorage.getItem("focus_last_open");
-    if (last) {
-      const days = (Date.now() - parseInt(last)) / 86400000;
-      if (days >= 7) setIsAbsent(true);
-    }
-    localStorage.setItem("focus_last_open", Date.now().toString());
-  }, []);
+  const [morningStep, setMorningStep]   = useState<"deal" | "focus" | null>(null);
+  const [picked, setPicked]             = useState<Task[]>([]);
+  const [swapPool, setSwapPool]         = useState<Task[]>([]);
+  const [swapsLeft, setSwapsLeft]       = useState(3);
+  const [showQueue, setShowQueue]       = useState(false);
+  const [isAbsent, setIsAbsent]         = useState(false);
 
-  // Show morning deal on first open of day
+  // ── Morning deal gate ──────────────────────────────────────────────────────
   useEffect(() => {
-    const lastMorning = localStorage.getItem("focus_morning_date");
+    if (loading || tasks.length === 0) return;
     const today = new Date().toDateString();
-    if (lastMorning !== today && !loading && tasks.length > 0) {
-      setShowMorning(true);
-      setMorningCards(tasks.slice(0, 3));
-      setAllDealCards(tasks);
-    }
+    const lastSeen = localStorage.getItem("focus_morning_date");
+    if (lastSeen === today) return; // already done morning deal today
+
+    const last = localStorage.getItem("focus_last_open");
+    if (last && (Date.now() - parseInt(last)) / 86400000 >= 7) setIsAbsent(true);
+    localStorage.setItem("focus_last_open", Date.now().toString());
+
+    // Sort: priority 1 first, then by due_at, then by created_at
+    const sorted = [...tasks].sort((a, b) => {
+      if ((a.priority ?? 9) !== (b.priority ?? 9)) return (a.priority ?? 9) - (b.priority ?? 9);
+      if (a.due_at && b.due_at) return a.due_at < b.due_at ? -1 : 1;
+      if (a.due_at) return -1;
+      if (b.due_at) return 1;
+      return a.created_at < b.created_at ? -1 : 1;
+    });
+
+    setPicked(sorted.slice(0, FOCUS_LIMIT));
+    setSwapPool(sorted.slice(FOCUS_LIMIT));
+    setMorningStep("deal");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, tasks.length]);
 
-  // K-07: Auto-focus first row on mount
+  // ── K-07: auto-focus first row when in focus view ─────────────────────────
   useEffect(() => {
-    if (!showMorning && !loading) {
-      requestAnimationFrame(() => {
-        const firstRow = listRef.current?.querySelector<HTMLElement>("[role='listitem'][data-task-id]");
-        firstRow?.focus();
-      });
-    }
-  }, [showMorning, loading]);
+    if (morningStep !== "focus") return;
+    requestAnimationFrame(() => {
+      const first = listRef.current?.querySelector<HTMLElement>("[data-task-id]");
+      first?.focus();
+    });
+  }, [morningStep]);
 
-  async function acceptDeal() {
+  const acceptDeal = useCallback(() => {
     localStorage.setItem("focus_morning_date", new Date().toDateString());
-    setShowMorning(false);
-  }
+    setMorningStep("focus");
+  }, []);
 
-  function swapCard(index: number) {
-    if (swapCount >= MAX_SWAPS) return;
-    const usedIds = morningCards.map((c) => c.id);
-    const pool = allDealCards.filter((t) => !usedIds.includes(t.id));
-    if (pool.length === 0) return;
-    const next = pool[swapCount % pool.length];
-    setMorningCards((prev) => prev.map((c, i) => (i === index ? next : c)));
-    setSwapCount((n) => n + 1);
-  }
+  const swapCard = useCallback((index: number) => {
+    if (swapsLeft <= 0 || swapPool.length === 0) return;
+    const next = swapPool[0];
+    const displaced = picked[index];
+    setPicked((prev) => prev.map((c, i) => i === index ? next : c));
+    setSwapPool((prev) => [displaced, ...prev.slice(1)]);
+    setSwapsLeft((n) => n - 1);
+  }, [swapsLeft, swapPool, picked]);
 
-  const toGo = tasks.filter((t) => !t.completed_at).length;
-  const today = new Date();
-  const dateLabel = today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  // ── Focus view tasks: show picked + optional queue ─────────────────────────
+  const focusTasks   = morningStep === "focus" ? picked.filter((t) => !t.completed_at) : tasks.filter((t) => !t.completed_at).slice(0, FOCUS_LIMIT);
+  const queueTasks   = morningStep === "focus" ? swapPool.filter((t) => !t.completed_at) : tasks.filter((t) => !t.completed_at).slice(FOCUS_LIMIT);
+  const toGo         = focusTasks.length;
+  const today        = new Date();
+  const dateLabel    = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 
-  // ── Morning deal view (S11) ──
-  if (showMorning) return (
+  // ── Morning deal ──────────────────────────────────────────────────────────
+  if (morningStep === "deal") return (
     <div style={{ padding: "32px 20px", maxWidth: 500, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
-        {isAbsent ? "Welcome back." : "Good morning."}
-      </h1>
-      {/* CW-003 / CW-010 */}
-      <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24 }}>
-        {isAbsent ? "We picked 3 tasks to start with." : "We picked 3 tasks to focus on today."}
-      </p>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-        {morningCards.map((card, i) => (
-          <div key={card.id} className="deal-card">
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
-              {card.due_at ? new Date(card.due_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "no date"}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>
+          {isAbsent ? "Welcome back." : "Good morning."}
+        </h1>
+        <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
+          {isAbsent
+            ? "Here are 3 good tasks to restart with."
+            : `We picked your top ${Math.min(FOCUS_LIMIT, tasks.length)} tasks. Swap any before you start.`}
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+        {picked.map((card, i) => (
+          <div key={card.id}
+            style={{ background: "var(--bg-elevated)", borderRadius: 8, padding: "14px 16px", border: "1px solid var(--border)", display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
+                {card.priority === 1 && <span style={{ fontSize: 11, color: "var(--accent-red)", fontWeight: 600 }}>HIGH</span>}
+                {card.due_at && (() => {
+                  const d = new Date(card.due_at);
+                  const diff = Math.floor((d.getTime() - Date.now()) / 86400000);
+                  const label = diff < 0 ? "overdue" : diff === 0 ? "today" : diff === 1 ? "tomorrow" : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                  const color = diff <= 0 ? "var(--accent-amber)" : "var(--text-muted)";
+                  return <span style={{ fontSize: 11, color }}>📅 {label}</span>;
+                })()}
+                {card.tags.map((t) => <span key={t} className="tag-chip" style={{ fontSize: 11 }}>#{t}</span>)}
+              </div>
+              <div style={{ fontSize: 15, color: "var(--text-primary)", fontWeight: 500 }}>{card.title}</div>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>{card.title}</div>
-            {card.tags.map((t) => <span key={t} className="tag-chip" style={{ marginRight: 4, fontSize: 11 }}>#{t}</span>)}
-            {/* HV-004: Try a different task */}
-            <button onClick={() => swapCard(i)} disabled={swapCount >= MAX_SWAPS}
-              style={{ display: "block", marginTop: 8, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: swapCount < MAX_SWAPS ? "pointer" : "default" }}>
-              Try a different task ↺
+            <button onClick={() => swapCard(i)} disabled={swapsLeft <= 0 || swapPool.length === 0}
+              title={swapsLeft > 0 ? "Swap for another task" : "No more swaps"}
+              style={{ padding: "4px 10px", background: "none", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, color: swapsLeft > 0 ? "var(--text-muted)" : "var(--text-muted)", cursor: swapsLeft > 0 ? "pointer" : "not-allowed", opacity: swapsLeft > 0 ? 1 : 0.4, flexShrink: 0 }}
+              aria-label={`Swap "${card.title}" for a different task`}>
+              ↺
             </button>
           </div>
         ))}
       </div>
-      {/* HV-011: Swap dots from initial render */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 16, fontSize: 12, color: "var(--text-muted)" }}>
-        {[0, 1, 2].map((i) => (
-          <span key={i} className={`swap-dot swap-dot--${i < swapCount ? "used" : "empty"}`} />
+
+      {/* Swap dots */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 20, fontSize: 12, color: "var(--text-muted)" }}>
+        {[0,1,2].map((i) => (
+          <span key={i} className={`swap-dot swap-dot--${i < (3 - swapsLeft) ? "used" : "empty"}`} />
         ))}
-        {swapCount === 0 && <span style={{ marginLeft: 4 }}>swaps available</span>}
-        {swapCount === MAX_SWAPS && <span style={{ marginLeft: 4 }}>no more swaps</span>}
+        <span style={{ marginLeft: 6 }}>
+          {swapsLeft > 0 ? `${swapsLeft} swap${swapsLeft !== 1 ? "s" : ""} left` : "no more swaps"}
+        </span>
       </div>
+
       <button onClick={acceptDeal} autoFocus
-        style={{ width: "100%", padding: "14px", background: "var(--accent-green)", color: "#0d1117", borderRadius: "var(--radius)", fontSize: 16, fontWeight: 700, border: "none", cursor: "pointer" }}>
-        Start with these {morningCards.length} →
+        style={{ width: "100%", padding: "14px", background: "var(--accent-green)", color: "#0d1117", borderRadius: "var(--radius)", fontSize: 16, fontWeight: 800, border: "none", cursor: "pointer", marginBottom: 10 }}>
+        Start with {picked.length} →
       </button>
-      <button onClick={() => { setShowMorning(false); router.push("/app/inbox"); }}
-        style={{ display: "block", margin: "10px auto 0", fontSize: 13, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}>
-        See all {allDealCards.length} tasks
+      <button onClick={() => router.push("/app/inbox")}
+        style={{ width: "100%", padding: "10px", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 13 }}>
+        See all {tasks.length} tasks in inbox
       </button>
     </div>
   );
 
-  // ── Today view (S13) ──
+  // ── Focus view ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "12px 14px 0", display: "flex", alignItems: "baseline", gap: 8 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Today</h1>
-        {/* HV-008: Date in header */}
-        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>· {dateLabel}</span>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+      {/* Header */}
+      <div style={{ padding: "12px 16px 0", display: "flex", alignItems: "baseline", gap: 8, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>Today</h1>
+          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{dateLabel}</span>
+        </div>
+        {morningStep === "focus" && (
+          <button onClick={() => setMorningStep("deal")}
+            style={{ fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+            title="Re-open morning pick">
+            ↻ repick
+          </button>
+        )}
       </div>
+
+      {/* Done wall */}
       <DoneWall doneTasks={doneTasks} toGo={toGo} wallRef={wallRef} />
+
       {loading ? (
         <div style={{ padding: 20, color: "var(--text-muted)" }}>Loading…</div>
       ) : (
-        <ul ref={listRef} role="list" aria-label="Today's tasks" style={{ listStyle: "none", flex: 1 }}>
-          {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} wallRef={wallRef}
-              onComplete={completeTask} onDelete={deleteTask} />
-          ))}
-          {tasks.length === 0 && (
-            <li style={{ padding: "24px 14px", color: "var(--text-muted)", fontSize: 14 }}>
-              Nothing here yet. Add a task below.
-            </li>
+        <>
+          {/* Focus 3 */}
+          <ul ref={listRef} role="list" aria-label="Today's focus tasks" style={{ listStyle: "none" }}>
+            {focusTasks.length === 0 && (
+              <li style={{ padding: "24px 16px", color: "var(--text-muted)", fontSize: 14 }}>
+                {doneTasks.length > 0 ? `All done today! ${doneTasks.length} completed ✓` : "Nothing here yet — add a task below."}
+              </li>
+            )}
+            {focusTasks.map((task) => (
+              <TaskRow key={task.id} task={task} wallRef={wallRef} onComplete={completeTask} onDelete={deleteTask} />
+            ))}
+          </ul>
+
+          {/* Queue toggle */}
+          {queueTasks.length > 0 && (
+            <div>
+              <button onClick={() => setShowQueue((s) => !s)}
+                style={{ width: "100%", padding: "8px 16px", background: "none", border: "none", borderTop: "1px solid var(--border)", color: "var(--text-muted)", fontSize: 13, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ transform: showQueue ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform 120ms" }}>›</span>
+                {showQueue ? "Hide" : "Show"} {queueTasks.length} queued task{queueTasks.length !== 1 ? "s" : ""}
+              </button>
+              {showQueue && (
+                <ul role="list" aria-label="Queued tasks" style={{ listStyle: "none", opacity: 0.7 }}>
+                  {queueTasks.map((task) => (
+                    <TaskRow key={task.id} task={task} wallRef={wallRef} onComplete={completeTask} onDelete={deleteTask} />
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-        </ul>
+        </>
       )}
+
       <CaptureBar onAdd={addTask} />
     </div>
   );

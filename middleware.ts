@@ -1,30 +1,43 @@
-import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const response = NextResponse.next({
+    request: { headers: request.headers },
+  });
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
+        getAll() { return request.cookies.getAll(); },
+        setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
         },
       },
     }
   );
+
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
-  const isAppRoute = pathname.startsWith("/app") || pathname.startsWith("/onboarding");
-  const isAuthRoute = pathname.startsWith("/auth");
 
-  if (isAppRoute && !user) return NextResponse.redirect(new URL("/auth/signup", request.url));
-  if (isAuthRoute && user && pathname !== "/auth/callback") return NextResponse.redirect(new URL("/app/today", request.url));
+  // Protected routes
+  if (pathname.startsWith("/app") || pathname.startsWith("/onboarding")) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/auth/login", request.url));
+    }
+  }
+
+  // Redirect logged-in users away from auth pages
+  if (user && (pathname === "/auth/login" || pathname === "/auth/signup")) {
+    return NextResponse.redirect(new URL("/app/today", request.url));
+  }
+
   return response;
 }
 
-export const config = { matcher: ["/app/:path*", "/onboarding/:path*", "/auth/:path*"] };
+export const config = {
+  matcher: ["/app/:path*", "/onboarding/:path*", "/auth/login", "/auth/signup"],
+};

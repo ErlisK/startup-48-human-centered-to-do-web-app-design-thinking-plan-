@@ -187,3 +187,17 @@ button.tag-chip:hover { filter: brightness(1.25); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ── Due/urgent task row ──────────────────────────────────── */
+.task-row--urgent { border-left: 3px solid var(--accent-amber) !important; }
+.task-row--urgent .task-checkbox { border-color: var(--accent-amber) !important; }
+
+/* ── Quick capture modal shake ────────────────────────────── */
+@keyframes modal-shake {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-6px); }
+  75%       { transform: translateX(6px); }
+}
+
+/* ── Arrow nav focus ring on task rows ────────────────────── */
+.task-row:focus { outline: none; background: #252d3a; }
