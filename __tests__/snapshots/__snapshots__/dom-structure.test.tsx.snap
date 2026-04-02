@@ -1,0 +1,83 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`API route source contracts API route handler snapshot — function signatures are stable 1`] = `
+{
+  "app/api/account/route.ts": [
+    "export async function DELETE",
+  ],
+  "app/api/export/route.ts": [
+    "export async function GET",
+  ],
+  "app/api/health/route.ts": [
+    "export async function GET",
+  ],
+  "app/api/import/route.ts": [
+    "export async function POST",
+  ],
+  "app/api/tasks/route.ts": [
+    "export async function GET",
+    "export async function POST",
+  ],
+}
+`;
+
+exports[`CHANGELOG.md — version contract CHANGELOG version history snapshot 1`] = `
+[
+  "0.1.2",
+  "0.1.1",
+  "0.1.0",
+  "0.0.1",
+]
+`;
+
+exports[`Design tokens — CSS custom property names design token snapshot — list of expected tokens is stable 1`] = `
+[
+  "--bg-base",
+  "--bg-surface",
+  "--bg-elevated",
+  "--text-primary",
+  "--text-secondary",
+  "--text-muted",
+  "--accent-blue",
+  "--accent-green",
+  "--border",
+  "--radius",
+]
+`;
+
+exports[`manifest.json — PWA contract has required PWA fields in manifest 1`] = `
+{
+  "display": "standalone",
+  "has_192": true,
+  "has_512": true,
+  "icon_count": 3,
+  "name": "✦ focus",
+  "short_name": "focus",
+  "start_url": "/app/today",
+}
+`;
+
+exports[`middleware.ts — rate limit config rate limit config snapshot is stable 1`] = `
+[
+  {
+    "max": 10,
+    "pattern": "/^\\/api\\/auth/",
+    "window": 60,
+  },
+  {
+    "max": 5,
+    "pattern": "/^\\/api\\/import/",
+    "window": 300,
+  },
+  {
+    "max": 5,
+    "pattern": "/^\\/api\\/account/",
+    "window": 60,
+  },
+  {
+    "max": 120,
+    "pattern": "/^\\/api\\//",
+    "window": 60,
+  },
+]
+`;

@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`ErrorBoundary catches errors without crashing the test 1`] = `null`;
+
+exports[`ErrorBoundary renders children when no error thrown 1`] = `null`;
+
+exports[`ErrorBoundary renders custom fallback when child throws 1`] = `null`;
+
+exports[`InstallBanner snapshot with canInstall=false is stable 1`] = `null`;
+
+exports[`SyncIndicator queued state — amber badge with count 1`] = `null`;
+
+exports[`SyncIndicator synced state — no badge 1`] = `null`;
+
+exports[`SyncIndicator syncing state — grey pulse 1`] = `null`;
+
+exports[`ToastProvider renders children wrapped in provider 1`] = `null`;
