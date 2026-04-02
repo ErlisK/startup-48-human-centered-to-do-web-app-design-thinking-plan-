@@ -47,7 +47,7 @@ html, body {
   border: 1.5px solid var(--accent-blue);
   color: var(--text-primary);
   padding: 10px 14px;
-  font-size: 15px;
+  font-size: 16px;
   border-radius: 0;
 }
 .capture-bar:focus { outline: none; border-color: var(--accent-blue); }

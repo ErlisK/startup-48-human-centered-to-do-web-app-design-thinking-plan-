@@ -147,7 +147,7 @@ export function CaptureBar({ defaultTag, onAdd }: CaptureBarProps) {
           onClick={doSave}
           disabled={saving || !value.trim()}
           aria-label={saving ? "Saving…" : "Save task"}
-          style={{ padding: "10px 14px", background: "var(--accent-green)", color: "#0d1117", border: "none", cursor: saving || !value.trim() ? "default" : "pointer", fontSize: 14, fontWeight: 700, opacity: !value.trim() ? 0.4 : 1, transition: "opacity 120ms", flexShrink: 0 }}>
+          style={{ padding: "10px 14px", background: "var(--accent-green)", color: "#0d1117", border: "none", cursor: saving || !value.trim() ? "default" : "pointer", fontSize: 16, fontWeight: 700, opacity: !value.trim() ? 0.4 : 1, transition: "opacity 120ms", flexShrink: 0 }}>
           {saving ? "…" : "↵"}
         </button>
       </div>

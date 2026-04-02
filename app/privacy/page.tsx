@@ -16,9 +16,12 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 export default function PrivacyPage() {
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg-base)" }}>
-      <nav style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
+      <nav style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Link href="/" style={{ color: "var(--accent-blue)", fontWeight: 800, fontSize: 18, textDecoration: "none" }}>
           ✦ focus
+        </Link>
+        <Link href="/app/today" style={{ color: "var(--text-muted)", fontSize: 13, textDecoration: "none" }}>
+          ← Back to app
         </Link>
       </nav>
       <main id="main-content" style={{ maxWidth: 680, margin: "0 auto", padding: "40px 24px 80px" }}>

@@ -170,8 +170,25 @@ export default function TodayPage() {
           {/* Focus 3 */}
           <ul ref={listRef} role="list" aria-label="Today's focus tasks" style={{ listStyle: "none" }}>
             {focusTasks.length === 0 && (
-              <li style={{ padding: "24px 16px", color: "var(--text-muted)", fontSize: 14 }}>
-                {doneTasks.length > 0 ? `All done today! ${doneTasks.length} completed ✓` : "Nothing here yet — add a task below."}
+              <li style={{ padding: "32px 16px", textAlign: "center" }}>
+                {doneTasks.length > 0 ? (
+                  <p style={{ color: "var(--accent-green)", fontSize: 16, fontWeight: 700 }}>
+                    All done today! {doneTasks.length} task{doneTasks.length !== 1 ? "s" : ""} completed ✓
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ color: "var(--text-muted)", fontSize: 14, marginBottom: 10 }}>
+                      Nothing queued for today.
+                    </p>
+                    <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                      Add your first task above ↑ or press{" "}
+                      <kbd style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 6px", fontFamily: "monospace", fontSize: 12 }}>
+                        ⌘K
+                      </kbd>{" "}
+                      anywhere.
+                    </p>
+                  </>
+                )}
               </li>
             )}
             {focusTasks.map((task) => (
