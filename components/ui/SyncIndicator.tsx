@@ -1,13 +1,29 @@
 "use client";
 import type { SyncState } from "@/hooks/useTasks";
-export function SyncIndicator({ state, count }: { state: SyncState; count: number }) {
-  if (state === "synced") return <span style={{ width: 24, display: "inline-block" }} aria-hidden />;
+
+interface Props { state: SyncState; count: number; }
+
+export function SyncIndicator({ state, count }: Props) {
+  if (state === "synced") return null;  // absence = synced (no noise)
+
+  const label = state === "queued"
+    ? `${count} change${count !== 1 ? "s" : ""} queued — will sync when online`
+    : "Syncing…";
+
   return (
     <span
+      role="status"
+      aria-live="polite"
+      aria-label={label}
+      title={label}
       className={`sync-indicator--${state}`}
-      title={state === "queued" ? `Offline — ${count} tasks queued` : "Syncing…"}
-      aria-label={state === "queued" ? `Offline, ${count} tasks queued` : "Syncing"}
-      style={{ width: 24, textAlign: "center", fontSize: 14, cursor: "default" }}
-    >◉</span>
+      style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+      <span aria-hidden="true">
+        {state === "queued" ? "◉" : "⟳"}
+      </span>
+      <span style={{ fontSize: 11 }}>
+        {state === "queued" ? `${count} queued` : "syncing"}
+      </span>
+    </span>
   );
 }

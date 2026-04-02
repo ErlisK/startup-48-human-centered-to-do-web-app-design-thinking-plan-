@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { SkipNav } from "@/components/ui/SkipNav";
 import { ResourceHints } from "@/components/ui/ResourceHints";
 import { ServiceWorkerRegistration } from "@/components/ui/ServiceWorkerRegistration";
 
@@ -36,8 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ResourceHints />
       </head>
       <body>
+        <SkipNav />
         <ServiceWorkerRegistration />
-        {children}
+        <div id="main-content">{children}</div>
       </body>
     </html>
   );

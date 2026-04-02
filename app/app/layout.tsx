@@ -14,7 +14,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
       <NavBar />
-      <main style={{ flex: 1, maxWidth: 640, width: "100%", margin: "0 auto", paddingBottom: 80 }}>
+      <main id="main-content" tabIndex={-1} style={{ flex: 1, maxWidth: 640, width: "100%", margin: "0 auto", paddingBottom: 80 }}>
         {children}
       </main>
       {/* Global Cmd+K modal — available on every page */}

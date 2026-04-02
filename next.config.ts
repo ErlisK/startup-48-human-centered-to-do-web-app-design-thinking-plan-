@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Use Turbopack (Vercel-compatible default in Next.js 16)
-  // next-pwa requires webpack; we use a manual SW instead (see public/sw-manual.js)
+  turbopack: {},
   experimental: { optimizePackageImports: ["chrono-node"] },
   async headers() {
     return [

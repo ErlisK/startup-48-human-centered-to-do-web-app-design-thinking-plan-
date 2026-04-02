@@ -74,7 +74,7 @@ export function QuickCaptureModal({ onAdd }: QuickCaptureModalProps) {
   if (!open) return null;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Quick capture"
+    <div role="dialog" aria-modal="true" aria-label="Quick capture" aria-describedby="qc-instructions"
       style={{ position: "fixed", inset: 0, zIndex: 9000, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "20vh", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
       onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
     >
@@ -82,6 +82,8 @@ export function QuickCaptureModal({ onAdd }: QuickCaptureModalProps) {
         onClick={(e) => e.stopPropagation()}>
 
         {/* Main input */}
+        <span id="qc-instructions" className="sr-only">Type a task and press Enter to save. Press Escape to close.</span>
+
         <form onSubmit={handleSubmit}
           style={{ background: "var(--bg-surface)", borderRadius: 10, border: "1px solid var(--accent-blue)", overflow: "hidden", boxShadow: "0 24px 48px rgba(0,0,0,0.5)", animation: shaking ? "shake 220ms ease-out" : undefined }}>
           <input ref={inputRef} value={value} onChange={handleChange}

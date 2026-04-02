@@ -14,8 +14,6 @@ function InboxContent() {
   const tagFilter = searchParams.get("tag");
   const { tasks, loading, addTask, completeTask, deleteTask } = useTasks("inbox");
   const { tasks: doneTasks } = useTasks("done-today");
-  const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
-
   // K-07: focus first row
   useEffect(() => {
     if (!loading) requestAnimationFrame(() => {
@@ -46,7 +44,6 @@ function InboxContent() {
           {filtered.map((task) => (
             <TaskRow key={task.id} task={task} wallRef={wallRef}
               onComplete={completeTask} onDelete={deleteTask}
-              showKbdHint={focusedRowId === task.id}
             />
           ))}
           {filtered.length === 0 && tagFilter && (
@@ -59,18 +56,7 @@ function InboxContent() {
           )}
         </ul>
       )}
-
-      {/* HV-012: keyboard hint bar on focus */}
-      {focusedRowId && (
-        <div className="kbd-hint-bar" role="region" aria-label="Keyboard shortcuts">
-          <span><kbd>Space</kbd> complete</span>
-          <span><kbd>T</kbd> today</span>
-          <span><kbd>S</kbd> someday</span>
-          <span><kbd>⌫</kbd> delete</span>
-        </div>
-      )}
-
-      <CaptureBar defaultTag={tagFilter ?? undefined} onAdd={addTask} />
+<CaptureBar defaultTag={tagFilter ?? undefined} onAdd={addTask} />
     </div>
   );
 }

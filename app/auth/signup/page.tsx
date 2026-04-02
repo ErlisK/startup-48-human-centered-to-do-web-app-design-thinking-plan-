@@ -83,7 +83,7 @@ export default function SignUpPage() {
         </div>
 
         <p style={{ marginTop: 20, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>
-          Already have an account? <Link href="/auth/login" style={{ color: "var(--accent-blue)" }}>Sign in →</Link>
+          Already have an account? <Link href="/auth/login" style={{ color: "var(--accent-blue)", textDecoration: "underline" }}>Sign in →</Link>
         </p>
         <p style={{ marginTop: 10, fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
           Free forever. No credit card.
