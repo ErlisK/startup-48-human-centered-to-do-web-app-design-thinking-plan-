@@ -1,138 +1,114 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { randomUUID } from "crypto";
+import { rateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
+import { writeAuditLog, getRequestIp, getUserAgent } from "@/lib/security/audit";
+import { sanitizeText, sanitizePriority, sanitizeDate, sanitizeTags } from "@/lib/security/sanitize";
 
-// Minimal RFC 4180 CSV parser (handles quoted fields with embedded commas/newlines)
-function parseCSV(text: string): Array<Record<string, string>> {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(Boolean);
-  if (lines.length < 2) return [];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_ROWS      = 2000;
 
-  const headers = splitCSVLine(lines[0]).map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
-
-  const rows: Array<Record<string, string>> = [];
-  let i = 1;
-  while (i < lines.length) {
-    let line = lines[i];
-    // Handle multi-line quoted fields
-    while ((line.match(/"/g) ?? []).length % 2 !== 0 && i + 1 < lines.length) {
-      i++;
-      line += "\n" + lines[i];
-    }
-    const values = splitCSVLine(line);
-    if (values.length === 0) { i++; continue; }
-    const row: Record<string, string> = {};
-    headers.forEach((h, idx) => { row[h] = (values[idx] ?? "").trim(); });
-    if (row["title"] || row["name"] || row["task"]) rows.push(row);
-    i++;
-  }
-  return rows;
-}
+const COL_ALIASES: Record<string, string> = {
+  name: "title", task: "title", content: "title", text: "title",
+  labels: "tags", categories: "tags",
+  due: "due_at", due_date: "due_at", duedate: "due_at",
+  done: "completed_at", completed: "completed_at", done_at: "completed_at",
+  estimate: "time_estimate_minutes",
+};
 
 function splitCSVLine(line: string): string[] {
-  const values: string[] = [];
-  let cur = "";
-  let inQuotes = false;
+  const vals: string[] = [];
+  let cur = ""; let inQ = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (ch === "," && !inQuotes) {
-      values.push(cur); cur = "";
-    } else {
-      cur += ch;
-    }
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === "," && !inQ) { vals.push(cur); cur = ""; }
+    else cur += ch;
   }
-  values.push(cur);
-  return values;
+  vals.push(cur);
+  return vals;
 }
 
-function parseDate(val: string): string | null {
-  if (!val || val === "null" || val === "undefined" || val === "") return null;
-  const d = new Date(val);
-  return isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-function parsePriority(val: string): number | null {
-  if (!val) return null;
-  const n = parseInt(val, 10);
-  if (!isNaN(n) && n >= 1 && n <= 4) return n;
-  const map: Record<string, number> = { high: 1, urgent: 1, medium: 2, normal: 3, low: 4 };
-  return map[val.toLowerCase()] ?? null;
-}
-
-function parseTags(val: string): string[] {
-  if (!val || val === "null") return [];
-  return val.split(/[;,|]+/).map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
+function parseCSV(text: string): Array<Record<string, string>> {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(Boolean);
+  if (lines.length < 2) return [];
+  const rawHeaders = splitCSVLine(lines[0]);
+  const headers = rawHeaders.map((h) => {
+    const norm = h.trim().toLowerCase().replace(/\s+/g, "_");
+    return COL_ALIASES[norm] ?? norm;
+  });
+  return lines.slice(1).map((line) => {
+    const vals = splitCSVLine(line);
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = (vals[i] ?? "").trim(); });
+    return row;
+  }).filter((r) => r["title"]);
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await getSupabaseServer();
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { ok, retryAfter } = await rateLimit(req, { prefix: "import", window: 300, max: 5 });
+  if (!ok) return rateLimitResponse(retryAfter);
 
-  // Accept multipart/form-data with a "file" field OR raw text/csv body
+  const supabase = await getSupabaseServer();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   let csvText = "";
   const ct = req.headers.get("content-type") ?? "";
 
   if (ct.includes("multipart/form-data")) {
     const form = await req.formData();
     const file = form.get("file") as File | null;
-    if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    if (!file.name.endsWith(".csv") && !ct.includes("text/csv")) {
-      return NextResponse.json({ error: "File must be a .csv" }, { status: 400 });
-    }
-    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "File too large (max 5 MB)" }, { status: 413 });
+    if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "File too large (max 5 MB)" }, { status: 413 });
     csvText = await file.text();
   } else {
-    const body = await req.text();
-    if (!body.trim()) return NextResponse.json({ error: "Empty request body" }, { status: 400 });
-    csvText = body;
+    csvText = await req.text();
+    if (csvText.length > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: "Request body too large (max 5 MB)" }, { status: 413 });
+    }
   }
 
-  const rows = parseCSV(csvText);
-  if (rows.length === 0) return NextResponse.json({ error: "No valid rows found in CSV" }, { status: 422 });
-  if (rows.length > 2000) return NextResponse.json({ error: "Too many rows (max 2000 per import)" }, { status: 422 });
+  const rows = parseCSV(csvText).slice(0, MAX_ROWS);
+  if (rows.length === 0) {
+    return NextResponse.json({ error: "No valid rows found. CSV must have a title/name/task column." }, { status: 400 });
+  }
 
-  const now = new Date().toISOString();
+  const tasks = rows.map((row) => ({
+    id:                    row["id"] && row["id"].length > 10 ? row["id"] : crypto.randomUUID(),
+    user_id:               user.id,
+    title:                 sanitizeText(row["title"] ?? "", 500),
+    tags:                  sanitizeTags(row["tags"] ? row["tags"].split(";").map(t => t.trim()) : []),
+    priority:              sanitizePriority(row["priority"]),
+    due_at:                sanitizeDate(row["due_at"]),
+    completed_at:          sanitizeDate(row["completed_at"]),
+    time_estimate_minutes: row["time_estimate_minutes"] ? Number(row["time_estimate_minutes"]) || null : null,
+    created_at:            sanitizeDate(row["created_at"]) ?? new Date().toISOString(),
+  })).filter((t) => t.title);
 
-  const tasks = rows.map((row) => {
-    // Accept both "focus export" column names and common app exports (Todoist, etc.)
-    const title = (row["title"] || row["name"] || row["task"] || row["content"] || "").trim();
-    return {
-      id:                    row["id"] && row["id"].length > 10 ? row["id"] : randomUUID(),
-      user_id:               user.id,
-      title:                 title.slice(0, 500),
-      tags:                  parseTags(row["tags"] || row["labels"] || row["tag"] || ""),
-      priority:              parsePriority(row["priority"] || row["p"] || ""),
-      due_at:                parseDate(row["due_at"] || row["due"] || row["due_date"] || ""),
-      completed_at:          parseDate(row["completed_at"] || row["completed"] || row["done_at"] || ""),
-      deleted_at:            null,   // never import deleted tasks
-      time_estimate_minutes: parseInt(row["time_estimate_minutes"] || row["time_estimate"] || "0", 10) || null,
-      created_at:            parseDate(row["created_at"] || row["created"] || "") ?? now,
-    };
-  }).filter((t) => t.title.length > 0);
+  let imported = 0;
+  let skipped  = 0;
+  const BATCH  = 100;
 
-  if (tasks.length === 0) return NextResponse.json({ error: "No tasks with a title found" }, { status: 422 });
-
-  // Upsert in batches of 100
-  let imported = 0, skipped = 0;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
-  for (let i = 0; i < tasks.length; i += 100) {
-    const batch = tasks.slice(i, i + 100);
-    const { error: upsertErr, count } = await db
+  for (let i = 0; i < tasks.length; i += BATCH) {
+    const batch = tasks.slice(i, i + BATCH);
+    const { error } = await db
       .from("tasks")
-      .upsert(batch, { onConflict: "id", ignoreDuplicates: false })
-      .select("id", { count: "exact", head: true });
-    if (upsertErr) { skipped += batch.length; continue; }
-    imported += count ?? batch.length;
+      .upsert(batch, { onConflict: "id", ignoreDuplicates: false });
+    if (error) { skipped += batch.length; }
+    else { imported += batch.length; }
   }
 
-  return NextResponse.json({
-    ok: true,
-    imported,
-    skipped,
-    total: tasks.length,
-  }, { status: 201 });
+  void writeAuditLog({
+    action: "data.import",
+    userId: user.id,
+    meta: { total: rows.length, imported, skipped },
+    ip: getRequestIp(req.headers),
+    userAgent: getUserAgent(req.headers),
+  });
+
+  return NextResponse.json({ ok: true, imported, skipped, total: rows.length });
 }

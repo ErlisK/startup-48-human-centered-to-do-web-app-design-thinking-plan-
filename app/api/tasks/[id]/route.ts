@@ -1,36 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { rateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
+import { writeAuditLog, getRequestIp, getUserAgent } from "@/lib/security/audit";
+import { sanitizeText, sanitizePriority, sanitizeDate, sanitizeTags } from "@/lib/security/sanitize";
 
-type Params = { params: Promise<{ id: string }> };
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { ok, retryAfter } = await rateLimit(req, { prefix: "tasks-patch", window: 60, max: 60 });
+  if (!ok) return rateLimitResponse(retryAfter);
 
-export async function PATCH(req: NextRequest, { params }: Params) {
-  const { id } = await params;
   const supabase = await getSupabaseServer();
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await req.json();
-  // Only allow safe fields; user_id and id are immutable
-  const allowed = ["title","tags","priority","due_at","completed_at","deleted_at","time_estimate_minutes"];
-  const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
-  const { data, error } = await db.from("tasks").update(patch).eq("id", id).eq("user_id", user.id).select().single();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  // Build sanitised update payload — only allow known fields
+  const patch: Record<string, unknown> = {};
+  if (body.title         !== undefined) patch.title         = sanitizeText(String(body.title), 500);
+  if (body.tags          !== undefined) patch.tags          = sanitizeTags(body.tags);
+  if (body.priority      !== undefined) patch.priority      = sanitizePriority(body.priority);
+  if (body.due_at        !== undefined) patch.due_at        = sanitizeDate(body.due_at);
+  if (body.completed_at  !== undefined) patch.completed_at  = sanitizeDate(body.completed_at);
+  if (body.deleted_at    !== undefined) patch.deleted_at    = sanitizeDate(body.deleted_at);
+  if (body.time_estimate_minutes !== undefined) {
+    const v = Number(body.time_estimate_minutes);
+    patch.time_estimate_minutes = isNaN(v) ? null : Math.min(Math.max(1, v), 480);
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
+
+  // Ensure user owns this task (RLS also enforces this — belt & suspenders)
+  const { data, error } = await db
+    .from("tasks")
+    .update(patch)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ task: data });
+  if (!data) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+
+  const action = patch.completed_at ? "task.complete" : patch.deleted_at ? "task.delete" : "task.update";
+  void writeAuditLog({
+    action,
+    userId: user.id,
+    resource: id,
+    ip: getRequestIp(req.headers),
+    userAgent: getUserAgent(req.headers),
+  });
+
+  return NextResponse.json(data);
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
-  const supabase = await getSupabaseServer();
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { ok, retryAfter } = await rateLimit(req, { prefix: "tasks-delete", window: 60, max: 30 });
+  if (!ok) return rateLimitResponse(retryAfter);
 
-  // Soft delete (CW-008)
+  const supabase = await getSupabaseServer();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
-  const { error } = await db.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id);
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+
+  // Soft delete — set deleted_at (RLS enforces user_id ownership)
+  const { error } = await db
+    .from("tasks")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+
+  void writeAuditLog({
+    action: "task.delete",
+    userId: user.id,
+    resource: id,
+    ip: getRequestIp(req.headers),
+    userAgent: getUserAgent(req.headers),
+  });
+
+  return new NextResponse(null, { status: 204 });
 }

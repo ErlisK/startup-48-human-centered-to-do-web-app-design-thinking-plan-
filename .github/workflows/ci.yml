@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+
+jobs:
+  # ── 1. Unit + Integration Tests ──────────────────────────────────────────────
+  unit-tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: startup-48-human-centered-to-do-web-app-design-thinking-plan-
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "startup-48-human-centered-to-do-web-app-design-thinking-plan-/package-lock.json"
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Run unit & integration tests
+        run: npx jest --no-coverage --passWithNoTests
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-results
+          path: startup-48-human-centered-to-do-web-app-design-thinking-plan-/jest-results.json
+          if-no-files-found: ignore
+
+  # ── 2. Build ─────────────────────────────────────────────────────────────────
+  build:
+    name: Next.js Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: startup-48-human-centered-to-do-web-app-design-thinking-plan-
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "startup-48-human-centered-to-do-web-app-design-thinking-plan-/package-lock.json"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: startup-48-human-centered-to-do-web-app-design-thinking-plan-/.next
+          retention-days: 1
+
+  # ── 3. E2E Tests (against deployed staging or local) ─────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: startup-48-human-centered-to-do-web-app-design-thinking-plan-
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "startup-48-human-centered-to-do-web-app-design-thinking-plan-/package-lock.json"
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: startup-48-human-centered-to-do-web-app-design-thinking-plan-/.next
+      - name: Run E2E tests
+        run: |
+          npx playwright test \
+            e2e/auth.spec.ts \
+            e2e/capture-flow.spec.ts \
+            e2e/today-view.spec.ts \
+            e2e/settings-data.spec.ts \
+            e2e/pwa-offline.spec.ts \
+            e2e/accessibility.spec.ts \
+            --project=chromium \
+            --reporter=line,json \
+            --output=playwright-report
+        env:
+          # Use staging deploy URL if available, fall back to local
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_URL || 'http://localhost:3000' }}
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: startup-48-human-centered-to-do-web-app-design-thinking-plan-/playwright-report
+          retention-days: 7
+
+  # ── 4. Lighthouse CI ─────────────────────────────────────────────────────────
+  lighthouse:
+    name: Lighthouse CI
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: startup-48-human-centered-to-do-web-app-design-thinking-plan-
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "startup-48-human-centered-to-do-web-app-design-thinking-plan-/package-lock.json"
+      - name: Install dependencies
+        run: npm ci
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: startup-48-human-centered-to-do-web-app-design-thinking-plan-/.next
+      - name: Install @lhci/cli
+        run: npm install -g @lhci/cli
+      - name: Start app server
+        run: npx next start -p 3000 &
+        env:
+          NODE_ENV: production
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 30000
+      - name: Run Lighthouse CI
+        run: lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: startup-48-human-centered-to-do-web-app-design-thinking-plan-/.lighthouseci
+          retention-days: 7

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   turbopack: {},
@@ -26,4 +27,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Sentry webpack plugin options — only used when SENTRY_AUTH_TOKEN is set in CI
+  org: process.env.SENTRY_ORG ?? "focus-app",
+  project: process.env.SENTRY_PROJECT ?? "focus-mvp",
+  // Suppress Sentry output in builds unless explicitly debugging
+  silent: !process.env.CI,
+  // Don't fail build if Sentry upload fails (graceful degradation)
+  errorHandler(err) {
+    console.warn("[sentry] Source map upload warning:", err.message);
+  },
+  // Disable automatic instrumentation that conflicts with turbopack
+  autoInstrumentServerFunctions: false,
+  autoInstrumentMiddleware: false,
+  // Keep our manual CSP headers — don't let Sentry overwrite them
+  widenClientFileUpload: false,
+  disableLogger: true,
+
+});
