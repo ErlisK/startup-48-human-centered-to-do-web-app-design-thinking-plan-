@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ResourceHints } from "@/components/ui/ResourceHints";
+import { ServiceWorkerRegistration } from "@/components/ui/ServiceWorkerRegistration";
 
 export const metadata: Metadata = {
   title: { template: "%s — focus", default: "focus — tasks that don't pile up" },
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ResourceHints />
       </head>
       <body>
+        <ServiceWorkerRegistration />
         {children}
       </body>
     </html>

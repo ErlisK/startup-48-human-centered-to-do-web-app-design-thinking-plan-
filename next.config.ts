@@ -1,61 +1,8 @@
 import type { NextConfig } from "next";
-import withPWAInit, { runtimeCaching as defaultCache } from "@ducanh2912/next-pwa";
-
-const withPWA = withPWAInit({
-  dest: "public",
-  disable: process.env.NODE_ENV === "development",
-  register: true,
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: false,
-  reloadOnOnline: true,
-  extendDefaultRuntimeCaching: true,
-  fallbacks: {
-    document: "/~offline",
-  },
-  workboxOptions: {
-    disableDevLogs: true,
-    runtimeCaching: [
-      // Supabase REST API — NetworkFirst (fresh data, offline fallback)
-      {
-        urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\//,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "supabase-rest",
-          expiration: { maxEntries: 64, maxAgeSeconds: 86400 },
-          networkTimeoutSeconds: 5,
-        },
-      },
-      // Supabase auth — NetworkOnly (never cache credentials)
-      {
-        urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/auth\//,
-        handler: "NetworkOnly",
-      },
-      // App pages (HTML) — NetworkFirst
-      {
-        urlPattern: ({ request }: { request: Request }) => request.destination === "document",
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "app-pages",
-          expiration: { maxEntries: 32, maxAgeSeconds: 86400 },
-          networkTimeoutSeconds: 5,
-        },
-      },
-      // Static assets — CacheFirst
-      {
-        urlPattern: /\.(png|svg|ico|woff2?|ttf)$/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "static-assets",
-          expiration: { maxEntries: 64, maxAgeSeconds: 2592000 },
-        },
-      },
-      // Default cache for everything else
-      ...defaultCache,
-    ],
-  },
-});
 
 const nextConfig: NextConfig = {
+  // Use Turbopack (Vercel-compatible default in Next.js 16)
+  // next-pwa requires webpack; we use a manual SW instead (see public/sw-manual.js)
   experimental: { optimizePackageImports: ["chrono-node"] },
   async headers() {
     return [
@@ -80,4 +27,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;
