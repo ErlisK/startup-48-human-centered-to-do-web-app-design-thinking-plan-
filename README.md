@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ✦ focus — keyboard-first todo app
 
-## Getting Started
+**Live app:** https://startup-48-human-centered-to-do-web.vercel.app  
+**Stack:** Next.js 15 (App Router, TypeScript) · Supabase (PostgreSQL + auth) · Vercel · PWA
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## What is focus?
+
+A minimal, keyboard-first todo app that captures tasks in under 2 seconds and surfaces your top 3 for today. No noise, no gamification, no streak anxiety.
+
+```
+⌘K          → Quick capture from anywhere
+Type naturally: "Call dentist tomorrow 3pm #health"
+Space       → Complete focused task
+← → ↑ ↓    → Navigate tasks
+G T         → Go to Today
+G I         → Go to Inbox
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **2-second capture** — type naturally with NLP date/tag parsing (chrono-node)
+- **Morning deal** — pick your top 3 focus tasks each morning (swap up to 3 times)
+- **Done Wall** — visual tile wall of completed tasks (ethical dopamine without streaks)
+- **Offline-ready** — PWA with service worker, IndexedDB queue, background sync
+- **Data portability** — CSV/JSON export, CSV import (Todoist-compatible), account deletion
+- **Keyboard-first** — full arrow-key navigation, WCAG AA accessibility
+- **Privacy-first** — no analytics by default, telemetry opt-in only, open source
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15 App Router + TypeScript |
+| Styling | Tailwind-compatible CSS vars + design tokens |
+| Database | Supabase (PostgreSQL + RLS + Realtime) |
+| Auth | Supabase Auth (magic link + password) |
+| Offline | Manual Service Worker + IndexedDB queue + ULID |
+| PWA | manifest.json + sw.js (6KB) |
+| Deploy | Vercel (Turbopack build) |
+| Testing | Jest (138 unit tests) + Playwright (58 E2E tests) |
+| Security | Middleware rate limiting + input sanitisation + audit log |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Security
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Row-Level Security on all tables (PostgreSQL RLS)
+- Rate limiting: 10 req/min on `/api/auth`, 120 req/min on `/api/*`
+- Input sanitisation: XSS/injection protection on all user fields
+- Audit log table: all data mutations tracked
+- HSTS + COOP + COEP + X-Frame-Options security headers
+- Privacy: no third-party tracking SDKs loaded by default
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Development
+
+```bash
+git clone https://github.com/ErlisK/startup-48-human-centered-to-do-web-app-design-thinking-plan-
+cd startup-48-human-centered-to-do-web-app-design-thinking-plan-
+npm install
+cp .env.local.example .env.local   # Add Supabase keys
+npm run dev
+```
+
+### Tests
+
+```bash
+npx jest --no-coverage              # 138 unit/integration tests
+npx playwright test --project=chromium  # 58 E2E tests
+```
+
+---
+
+## Roadmap
+
+- [x] Phase 1–4: Research, design, prototyping
+- [x] Phase 5: MVP build (auth, capture, today view, PWA, accessibility)
+- [x] Phase 6: Dogfooding + security hardening + micro-fixes
+- [ ] Phase 7: Analytics (opt-in) + user interviews
+- [ ] Phase 8: Growth — SEO, directories, community
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+---
+
+*Built with design thinking. No VC funding. No dark patterns.*
