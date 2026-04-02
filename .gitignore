@@ -8,3 +8,4 @@ dist/
 public/sw.js
 public/workbox-*.js
 .vercel
+test-results/
